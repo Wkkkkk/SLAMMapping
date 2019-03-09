@@ -20,10 +20,11 @@
 #ifndef PROTYPE_ECHOCLIENT_H
 #define PROTYPE_ECHOCLIENT_H
 
-#include <muduo/net/TcpClient.h>
+#include <list>
 
-#include <muduo/base/Logging.h>
 #include <muduo/base/Thread.h>
+#include <muduo/base/Logging.h>
+#include <muduo/net/TcpClient.h>
 #include <muduo/net/EventLoop.h>
 
 using namespace muduo;
@@ -36,6 +37,8 @@ public:
 
     void connect();
 
+    void send(const std::string &str);
+
 private:
     void onConnection(const TcpConnectionPtr& conn);
 
@@ -43,7 +46,8 @@ private:
 
     EventLoop* loop_;
     TcpClient client_;
-    string message_;
+    TcpConnectionPtr conn_;
+    std::string message_;
 };
 
 

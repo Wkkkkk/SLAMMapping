@@ -18,7 +18,8 @@
 */
 
 #include "EchoServer.h"
-#include "../messages/lm.helloworld.pb.h"
+#include "cmd.task.pb.h"
+#include "lm.helloworld.pb.h"
 
 #include <muduo/base/Logging.h>
 #include <muduo/net/EventLoop.h>
@@ -64,7 +65,7 @@ void EchoServer::onConnection(const muduo::net::TcpConnectionPtr& conn)
     else
     {
         assert(!conn->getContext().empty());
-        const Node& node = boost::any_cast<const Node&>(conn->getContext());
+        auto node = boost::any_cast<const Node &>(conn->getContext());
         connectionList_.erase(node.position);
     }
 }
@@ -74,9 +75,33 @@ void EchoServer::onMessage(const muduo::net::TcpConnectionPtr& conn,
                            muduo::Timestamp time)
 {
     muduo::string msg(buf->retrieveAllAsString());
-    LOG_INFO << conn->name() << " echo " << msg.size() << " bytes, "
-             << "data received at " << time.toString();
-    conn->send(msg);
+    cmd::task task;
+    task.ParseFromString(msg);
+
+    LOG_INFO << conn->name() << " get task: " << task.id() << " from: " << task.pid()
+             << " " << task.ip() << ":" << task.port() << " with: " << task.jobs_size()
+             << " jobs at " << time.toString();
+    if (!task.IsInitialized()) return;
+
+    for (int i = 0; i < task.jobs_size(); ++i) {
+        cmd::task_job job;
+        job = task.jobs(i);
+        LOG_INFO << "job: " << i << " 's type is " << job.type() << " " << job.description();
+        switch (job.type()) {
+            case cmd::task_JobType_CALCULATE : {
+                break;
+            }
+            case cmd::task_JobType_FILE_TRANSFER : {
+                LOG_INFO << "got u!" << job.file_path();
+                break;
+            }
+            case cmd::task_JobType_END : {
+                break;
+            }
+            default:
+                LOG_WARN << "get unexpected job: " << job.description();
+        }
+    }
 }
 
 void EchoServer::onTimer() {
@@ -90,7 +115,7 @@ void EchoServer::onTimer() {
             msg1.set_id(101);
             msg1.set_str("abcd");
 
-            std::string msg = msg1.str();
+            std::string msg = msg1.SerializeAsString();
             conn->send(msg);
             ++it;
         }

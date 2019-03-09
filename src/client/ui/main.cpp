@@ -1,59 +1,47 @@
-/*
- * Copyright (c) 2018 Ally of Intelligence Technology Co., Ltd. All rights reserved.
+/*! \mainpage SpaceCloud
  *
- * Created by WuKun on 3/7/19.
- * Contact with:wk707060335@gmail.com
+ * \section intro_sec Introduction
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * 深圳智绘科技研发部学习材料
  *
- *   http: *www.apache.org/licenses/LICENSE-2.0
+ * some demo developed by Shenzhen Zhihui Technology Co., Ltd
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
-*/
-#include "../../network/EchoClient.h"
+ * 软件由C++在Linux下编写，利用Qt和OSG搭建界面
+ *
+ * The software is written by C++ under Linux, with Qt and OSG.
+ *
+ * \section prerequisites_sec Prerequisites
+ *  1. OpenSceneGraph 3.2
+ *  2. Qt version 5.5 or newer
+ *  Make sure you have a C++11 compliant compiler (gcc 5.5+ / clang)
+ *
+ * \section install_sec Installation
+ * \subsection step1 Step 1: Clone the project
+ * \subsection step2 Step 2: Build
+ * \subsection step3 Step 3: Run
+ *
+ * etc...
+ */
 
-#include <muduo/net/TcpClient.h>
+#include <QtWidgets/QApplication>
+#include <QtCore/QTranslator>
 
-#include <muduo/base/Logging.h>
-#include <muduo/base/Thread.h>
-#include <muduo/net/EventLoop.h>
-#include <muduo/net/InetAddress.h>
+#include "MainWindow.h"
 
-#include <utility>
 
-#include <stdio.h>
-#include <unistd.h>
+int main(int argc, char *argv[]) {
+    LOG_INFO << "pid = " << getpid();
+    qputenv("QT_STYLE_OVERRIDE", ""); // suppress the qt style warning
+    QApplication app(argc, argv);
 
-// using namespace muduo;
-// using namespace muduo::net;
+    QTranslator translator;
+    if (!app.arguments().contains("en"))
+        if (translator.load(QLocale("zh"), QLatin1String("lpd"), QLatin1String("_"), app.applicationDirPath() + "/tr"))
+            app.installTranslator(&translator);
 
-int main(int argc, char* argv[])
-{
-    LOG_INFO << "pid = " << getpid() << ", tid = " << CurrentThread::tid();
-    if (argc > 1)
-    {
-        EventLoop loop;
-        InetAddress serverAddr(argv[1], 2000);
-        LOG_INFO << "connect to: " << serverAddr.toIpPort();
+    MainWindow mainwindow;
+    mainwindow.setMinimumSize(800, 600);  //avoid graphic context bugs!
+    mainwindow.show();
 
-        int size = 256;
-        if (argc > 2)
-        {
-            size = atoi(argv[2]);
-        }
-
-        EchoClient client(&loop, serverAddr, size);
-        client.connect();
-        loop.loop();
-    }
-    else
-    {
-        printf("Usage: %s host_ip [msg_size]\n", argv[0]);
-    }
+    return app.exec();
 }

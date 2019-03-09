@@ -18,7 +18,7 @@
 */
 
 #include "EchoClient.h"
-#include "../messages/lm.helloworld.pb.h"
+#include "lm.helloworld.pb.h"
 
 #include <iostream>
 
@@ -31,7 +31,7 @@ EchoClient::EchoClient(EventLoop *loop, const InetAddress &listenAddr, size_t si
             std::bind(&EchoClient::onConnection, this, _1));
     client_.setMessageCallback(
             std::bind(&EchoClient::onMessage, this, _1, _2, _3));
-    //client_.enableRetry();
+    client_.enableRetry();
 }
 
 void EchoClient::connect() {
@@ -47,22 +47,28 @@ void EchoClient::onConnection(const TcpConnectionPtr &conn) {
     {
         conn->setTcpNoDelay(true);
 //        conn->send(message_);
+        conn_ = conn;
     }
     else
     {
+        conn_.reset();
         loop_->quit();
     }
 }
 
 void EchoClient::onMessage(const TcpConnectionPtr &conn, Buffer *buf, Timestamp time) {
     muduo::string msg(buf->retrieveAllAsString());
-    LOG_INFO << conn->name() << " " << msg  << " with " << msg.size() << " bytes, "
-             << "data received at " << time.toString();
 
     lm::helloworld msg1;
-    msg1.set_str(msg);
+    msg1.ParseFromString(msg);
     std::cout << msg1.id() << std::endl;
     std::cout << msg1.str() << std::endl;
 
-//    conn->send(buf);
+    LOG_INFO << conn->name() << " " << msg1.str() << " with " << msg.size() << " bytes, "
+             << "data received at " << time.toString();
 }
+
+void EchoClient::send(const std::string &str) {
+    conn_->send(str);
+}
+

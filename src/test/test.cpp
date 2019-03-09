@@ -20,27 +20,24 @@
 
 #include <iostream>
 #include <thread>
-#include <chrono>
 
 #include <boost/test/included/unit_test.hpp>
-#include "../tools/ThreadPool.h"
-
-int calculate(int a, int b)
-{
-    std::cout << "calculate" << std::endl;
-    int result = a + b;
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-
-    return result;
-}
-
-void do_some_thing()
-{
-    std::cout << "do_some_thing" << std::endl;
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-}
+#include "ThreadPool.h"
+#include "Singleton.h"
 
 BOOST_AUTO_TEST_SUITE(threadpool_test) // name of the test suite
+    int calculate(int a, int b) {
+        std::cout << "calculate" << std::endl;
+        int result = a + b;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        return result;
+    }
+
+    void do_some_thing() {
+        std::cout << "do_some_thing" << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+    }
 
     BOOST_AUTO_TEST_CASE(test1)
     {
@@ -64,6 +61,26 @@ BOOST_AUTO_TEST_SUITE(threadpool_test) // name of the test suite
         std::cout << "get result1: " << result1 << std::endl;
         future2.get();
         BOOST_REQUIRE_EQUAL (15, result1); // basic test
+    }
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(singleton_test) // name of the test suite
+
+    BOOST_AUTO_TEST_CASE(test3) {
+        Singleton<int>::getInstance()->update(Key<int>(0), 123);
+        Singleton<int>::getInstance()->update(Key<int>(1), 234);
+        Singleton<int>::getInstance()->print();
+    }
+
+    BOOST_AUTO_TEST_CASE(test4) {
+        Singleton<int>::getInstance()->update(Key<int>(0), 123);
+        int result = Singleton<int>::getInstance()->findByID(Key<int>(0));
+
+        Singleton<double>::getInstance()->update(Key<double>(0), 1.23);
+        double result2 = Singleton<double>::getInstance()->findByID(Key<double>(0));
+        BOOST_REQUIRE_EQUAL (123, result); // basic test
+        BOOST_REQUIRE_EQUAL (1.23, result2); // basic test
     }
 
 BOOST_AUTO_TEST_SUITE_END()

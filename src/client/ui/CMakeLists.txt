@@ -1,9 +1,7 @@
-cmake_minimum_required(VERSION 3.5)
 project(client)
 
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
-file(GLOB SOURCES_CXX "*.cpp")
+file(GLOB SOURCES_CXX *.cpp *.ui *.h *.qrc)
 
 add_executable(${PROJECT_NAME} ${SOURCES_CXX})
-target_link_libraries(${PROJECT_NAME} network)
+target_link_libraries(${PROJECT_NAME} network render)
+qt5_use_modules(${PROJECT_NAME} Sql Gui Widgets OpenGL Network Concurrent)
