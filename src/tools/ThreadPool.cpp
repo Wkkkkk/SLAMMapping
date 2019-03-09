@@ -32,7 +32,7 @@ void ThreadPool::work_thread() {
 
 ThreadPool::ThreadPool()
         : done(false) {
-    const unsigned int thread_count = std::thread::hardware_concurrency();
+    const unsigned int thread_count = std::thread::hardware_concurrency() - 1;
 
     for(unsigned int i = 0; i < thread_count; ++i) {
         threads.emplace_back(std::thread(&ThreadPool::work_thread, this));

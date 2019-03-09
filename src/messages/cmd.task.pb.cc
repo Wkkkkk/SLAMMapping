@@ -2,7 +2,6 @@
 // source: cmd.task.proto
 
 #define INTERNAL_SUPPRESS_PROTOBUF_FIELD_DEPRECATION
-
 #include "cmd.task.pb.h"
 
 #include <algorithm>

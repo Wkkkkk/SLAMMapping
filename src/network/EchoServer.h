@@ -24,6 +24,8 @@
 #include <muduo/net/TcpConnection.h>
 #include <muduo/net/TcpServer.h>
 
+#include "ThreadPool.h"
+
 // RFC 862
 class EchoServer
 {
@@ -47,9 +49,14 @@ private:
 
     struct Node : public muduo::copyable
     {
+        size_t task_id;
         muduo::Timestamp lastReceiveTime;
         WeakConnectionList::iterator position;
+
+        Node() : task_id(0) {}
     };
+
+    ThreadPool pool_;
 
     muduo::net::TcpServer server_;
     WeakConnectionList connectionList_;

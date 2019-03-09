@@ -16,10 +16,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-
 #include "EchoServer.h"
 #include "cmd.task.pb.h"
 #include "lm.helloworld.pb.h"
+#include "Singleton.h"
 
 #include <muduo/base/Logging.h>
 #include <muduo/net/EventLoop.h>
@@ -28,8 +28,30 @@ using std::placeholders::_1;
 using std::placeholders::_2;
 using std::placeholders::_3;
 
- using namespace muduo;
- using namespace muduo::net;
+using namespace muduo;
+using namespace muduo::net;
+
+typedef std::pair<int, int> TaskStatus;
+
+void print(int id, const std::string &str) {
+    for (int i = 0; i < 10; ++i) {
+        TaskStatus task_status = {id, i * 10};
+        Singleton<TaskStatus>::getInstance()->update(Key<TaskStatus>(id), task_status);
+
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
+int calculate(int a, int b) {
+    int result = a + b;
+    std::this_thread::sleep_for(std::chrono::seconds(4));
+
+    return result;
+}
+
+void do_some_thing() {
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+}
 
 EchoServer::EchoServer(muduo::net::EventLoop* loop,
                        const muduo::net::InetAddress& listenAddr)
@@ -83,19 +105,32 @@ void EchoServer::onMessage(const muduo::net::TcpConnectionPtr& conn,
              << " jobs at " << time.toString();
     if (!task.IsInitialized()) return;
 
+    auto node = boost::any_cast<const Node &>(conn->getContext());
+    node.task_id = task.id();
+    conn->setContext(node);
+
     for (int i = 0; i < task.jobs_size(); ++i) {
         cmd::task_job job;
         job = task.jobs(i);
+
         LOG_INFO << "job: " << i << " 's type is " << job.type() << " " << job.description();
         switch (job.type()) {
             case cmd::task_JobType_CALCULATE : {
+                auto f = std::bind(&calculate, 10, 5);
+                pool_.submit(f);
+
                 break;
             }
             case cmd::task_JobType_FILE_TRANSFER : {
-                LOG_INFO << "got u!" << job.file_path();
+                auto f = std::bind(&print, task.id(), job.file_path());
+                pool_.submit(f);
+
                 break;
             }
             case cmd::task_JobType_END : {
+                auto f = std::bind(&do_some_thing);
+                pool_.submit(f);
+
                 break;
             }
             default:
@@ -111,9 +146,18 @@ void EchoServer::onTimer() {
         TcpConnectionPtr conn = it->lock();
         if (conn)
         {
+            auto node = boost::any_cast<const Node &>(conn->getContext());
+            if (node.task_id == 0) {
+                ++it;
+                continue;
+            }
+
+            size_t id = node.task_id;
+            TaskStatus task = Singleton<TaskStatus>::getInstance()->findByID(Key<TaskStatus>(id));
+
             lm::helloworld msg1;
-            msg1.set_id(101);
-            msg1.set_str("abcd");
+            msg1.set_id(id);
+            msg1.set_str(std::to_string(task.second));
 
             std::string msg = msg1.SerializeAsString();
             conn->send(msg);
