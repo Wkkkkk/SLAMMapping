@@ -1,0 +1,44 @@
+set(APP_NAME ${PROJECT_NAME})
+
+file(GLOB ${APP_NAME}_SRC *.cpp *.ui *.h *.qrc)
+IF (WIN32)
+    set( RC_FILE "images/icon/icon.rc" )
+endif()
+
+file(GLOB TRANSLATION_FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/tr/lpd_zh.ts)
+
+qt5_add_translation(TRANSLATION_QM ${TRANSLATION_FILES})
+add_custom_target(translations
+        DEPENDS ${TRANSLATION_QM})
+
+add_custom_target(copy_ts
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${TRANSLATION_QM} ${EXECUTABLE_OUTPUT_PATH}/tr/lpd_zh.qm
+        DEPENDS ${TRANSLATION_QM})
+
+add_custom_target(copy_model
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/model/greenarrow.osgb ${EXECUTABLE_OUTPUT_PATH}/model/greenarrow.osgb
+        )
+
+add_custom_target(copy_manual
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/Manual.pdf ${EXECUTABLE_OUTPUT_PATH}/Manual.pdf
+        )
+
+#foreach(plugin ${Qt5Gui_PLUGINS})
+#    get_target_property(_loc ${plugin} LOCATION)
+#    message("Plugin ${plugin} is at location ${_loc}")
+#endforeach()
+
+if(WIN32)
+    add_executable(${APP_NAME} WIN32 ${RC_FILE} ${${APP_NAME}_SRC})
+else()
+    add_executable(${APP_NAME} ${${APP_NAME}_SRC})
+endif()
+
+add_dependencies(${APP_NAME} copy_ts copy_model copy_manual)
+
+target_link_libraries(${APP_NAME} renderer core ${OPENSCENEGRAPH_LIBRARIES})
+qt5_use_modules(${APP_NAME} Sql Gui Widgets OpenGL Network Concurrent)

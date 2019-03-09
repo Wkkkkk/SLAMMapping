@@ -1,0 +1,28 @@
+package cmd;
+
+//import "google/protobuf/timestamp.proto";
+
+message task
+{
+    required string ip = 1;
+    required int32 port = 2;
+    required int32 pid = 3;
+
+    required int32 id = 4;  // Unique ID number for this task.
+
+    enum JobType {
+        CALCULATE = 0;
+        FILE_TRANSFER = 1;
+        END = 2;
+    }
+
+    message job {
+        required string file_path = 1;
+        required JobType type = 2;
+        optional string description = 3;
+    }
+
+    repeated job jobs = 5;
+
+    //optional google.protobuf.Timestamp last_updated = 6;
+}
