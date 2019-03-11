@@ -99,15 +99,15 @@ void EchoServer::onMessage(const muduo::net::TcpConnectionPtr& conn,
     muduo::string msg(buf->retrieveAllAsString());
     cmd::task task;
     task.ParseFromString(msg);
-
-    LOG_INFO << conn->name() << " get task: " << task.id() << " from: " << task.pid()
-             << " " << task.ip() << ":" << task.port() << " with: " << task.jobs_size()
-             << " jobs at " << time.toString();
     if (!task.IsInitialized()) return;
 
-    auto node = boost::any_cast<const Node &>(conn->getContext());
-    node.task_id = task.id();
-    conn->setContext(node);
+    assert(!conn->getContext().empty());
+    auto node = boost::any_cast<Node>(conn->getMutableContext());
+    node->task_id = task.id();
+
+    LOG_INFO << conn->name() << " get task: " << node->task_id << " from: " << task.pid()
+             << " " << task.ip() << ":" << task.port() << " with: " << task.jobs_size()
+             << " jobs at " << time.toString();
 
     for (int i = 0; i < task.jobs_size(); ++i) {
         cmd::task_job job;

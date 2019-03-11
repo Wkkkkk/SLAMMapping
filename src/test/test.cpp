@@ -20,10 +20,18 @@
 
 #include <iostream>
 #include <thread>
+#include <unistd.h>
 
 #include <boost/test/included/unit_test.hpp>
+
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/message.h>
+
+#include "cmd.task.pb.h"
 #include "ThreadPool.h"
 #include "Singleton.h"
+#include "UDPSender.h"
+
 
 BOOST_AUTO_TEST_SUITE(threadpool_test) // name of the test suite
     int calculate(int a, int b) {
@@ -81,6 +89,48 @@ BOOST_AUTO_TEST_SUITE(singleton_test) // name of the test suite
         double result2 = Singleton<double>::getInstance()->findByID(Key<double>(0));
         BOOST_REQUIRE_EQUAL (123, result); // basic test
         BOOST_REQUIRE_EQUAL (1.23, result2); // basic test
+    }
+
+BOOST_AUTO_TEST_SUITE_END()
+
+
+BOOST_AUTO_TEST_SUITE(protobuf_test) // name of the test suite
+
+    BOOST_AUTO_TEST_CASE(protobuf) {
+
+        GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+        cmd::task task;
+        task.set_ip("127.0.0.1");
+        task.set_port(1234);
+        task.set_pid(getpid());
+        task.set_id(1);
+        {
+            cmd::task_job *job = task.add_jobs();
+            job->set_type(cmd::task_JobType_FILE_TRANSFER);
+            job->set_file_path("test/abc");
+        }
+
+        std::string msg = task.SerializeAsString();
+        {
+            std::cout << "----------" << std::endl;
+            cmd::task task1;
+            task1.ParseFromString(msg);
+            task1.PrintDebugString();
+        }
+
+        google::protobuf::ShutdownProtobufLibrary();
+    }
+
+BOOST_AUTO_TEST_SUITE_END()
+
+
+BOOST_AUTO_TEST_SUITE(udp_test) // name of the test suite
+
+    BOOST_AUTO_TEST_CASE(sender) {
+        UDPSender udpSender("127.0.0.1", 9696);
+        udpSender.readPCDFileFromPath("/home/zhihui/workspace/data/PointCloud/test.pcd");
+        udpSender.send();
     }
 
 BOOST_AUTO_TEST_SUITE_END()
