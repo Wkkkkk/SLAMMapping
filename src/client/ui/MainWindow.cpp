@@ -33,7 +33,7 @@
 
 #include "OSGWidget.h"
 #include "MainWindow.h"
-#include "cmd.task.pb.h"
+#include "mes.ud.pb.h"
 
 
 //using namespace core;
@@ -46,10 +46,10 @@ MainWindow::MainWindow(QWidget *parent)
           pool(&loop, "tcp-client") {
 
     this->setWindowTitle("SpaceCloud");
-//
-//    osgwidget_ = new OSGWidget(this);
-//    this->setCentralWidget(osgwidget_);
-//    osgwidget_->init();
+
+    osgwidget_ = new OSGWidget(this);
+    this->setCentralWidget(osgwidget_);
+    osgwidget_->init();
 
     pool.setThreadNum(5);
     pool.start();
@@ -79,19 +79,23 @@ void MainWindow::open() {
     holder.emplace_back(new EchoClient(pool.getNextLoop(), serverAddr, 256));
     holder.back()->connect();
 
-    cmd::task task;
-    task.set_ip(hostIp);
-    task.set_port(tcpport);
-    task.set_pid(getpid());
-    task.set_id(1);
+    message::task task;
+    task.set_allocated_tcp_id(new message::tcp_id);
+    task.mutable_tcp_id()->set_ip("127.0.0.1");
+    task.mutable_tcp_id()->set_port(1234);
+    task.mutable_tcp_id()->set_pid(getpid());
+    task.mutable_tcp_id()->set_allocated_connect_time(new message::timestamp);
+    task.mutable_tcp_id()->mutable_connect_time()->set_seconds(muduo::Timestamp::now().microSecondsSinceEpoch());
+    task.set_task_id(1);
+
     {
-        cmd::task_job *job = task.add_jobs();
-        job->set_type(cmd::task_JobType_FILE_TRANSFER);
+        message::task_job *job = task.add_jobs();
+        job->set_job_type(message::task::calculate);
         job->set_file_path(f.filePath().toStdString());
     }
     std::string msg = task.SerializeAsString();
 
-    sleep(3);
+    sleep(1);
     holder.back()->send(msg);
 }
 

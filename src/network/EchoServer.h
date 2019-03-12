@@ -19,6 +19,7 @@
 
 #ifndef PROTYPE_ECHOSERVER_H
 #define PROTYPE_ECHOSERVER_H
+
 #include <list>
 
 #include <muduo/net/TcpConnection.h>
@@ -49,15 +50,11 @@ private:
 
     struct Node : public muduo::copyable
     {
-        size_t task_id;
         muduo::Timestamp lastReceiveTime;
         WeakConnectionList::iterator position;
-
-        Node() : task_id(0) {}
     };
 
     ThreadPool pool_;
-
     muduo::net::TcpServer server_;
     WeakConnectionList connectionList_;
 };

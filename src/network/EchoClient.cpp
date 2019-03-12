@@ -16,11 +16,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
+#include <muduo/base/Logging.h>
 
 #include "EchoClient.h"
-#include "lm.helloworld.pb.h"
-
-#include <iostream>
+#include "mes.ud.pb.h"
 
 EchoClient::EchoClient(EventLoop *loop, const InetAddress &listenAddr, size_t size)
         : loop_(loop),
@@ -59,12 +58,10 @@ void EchoClient::onConnection(const TcpConnectionPtr &conn) {
 void EchoClient::onMessage(const TcpConnectionPtr &conn, Buffer *buf, Timestamp time) {
     muduo::string msg(buf->retrieveAllAsString());
 
-    lm::helloworld msg1;
-    msg1.ParseFromString(msg);
-    std::cout << msg1.id() << std::endl;
-    std::cout << msg1.str() << std::endl;
+    message::status status;
+    status.ParseFromString(msg);
 
-    LOG_INFO << conn->name() << " " << msg1.str() << " with " << msg.size() << " bytes, "
+    LOG_INFO << conn->name() << " " << status.GetTypeName() << " with " << msg.size() << " bytes, "
              << "data received at " << time.toString();
 }
 

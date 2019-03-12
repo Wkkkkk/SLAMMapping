@@ -27,7 +27,7 @@
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/message.h>
 
-#include "cmd.task.pb.h"
+#include "ProtobufDispatcher.h"
 #include "ThreadPool.h"
 #include "Singleton.h"
 #include "UDPSender.h"
@@ -93,44 +93,52 @@ BOOST_AUTO_TEST_SUITE(singleton_test) // name of the test suite
 
 BOOST_AUTO_TEST_SUITE_END()
 
-
-BOOST_AUTO_TEST_SUITE(protobuf_test) // name of the test suite
-
-    BOOST_AUTO_TEST_CASE(protobuf) {
-
-        GOOGLE_PROTOBUF_VERIFY_VERSION;
-
-        cmd::task task;
-        task.set_ip("127.0.0.1");
-        task.set_port(1234);
-        task.set_pid(getpid());
-        task.set_id(1);
-        {
-            cmd::task_job *job = task.add_jobs();
-            job->set_type(cmd::task_JobType_FILE_TRANSFER);
-            job->set_file_path("test/abc");
-        }
-
-        std::string msg = task.SerializeAsString();
-        {
-            std::cout << "----------" << std::endl;
-            cmd::task task1;
-            task1.ParseFromString(msg);
-            task1.PrintDebugString();
-        }
-
-        google::protobuf::ShutdownProtobufLibrary();
-    }
-
-BOOST_AUTO_TEST_SUITE_END()
-
-
 BOOST_AUTO_TEST_SUITE(udp_test) // name of the test suite
 
     BOOST_AUTO_TEST_CASE(sender) {
         UDPSender udpSender("127.0.0.1", 9696);
         udpSender.readPCDFileFromPath("/home/zhihui/workspace/data/PointCloud/test.pcd");
         udpSender.send();
+    }
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE(protobufdispatcher_test) // name of the test suite
+
+    BOOST_AUTO_TEST_CASE(protobufdispatcher) {
+        GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+        message::task q;
+        q.set_allocated_tcp_id(new message::tcp_id);
+        q.mutable_tcp_id()->set_ip("127.0.0.1");
+        q.mutable_tcp_id()->set_port(1234);
+        q.mutable_tcp_id()->set_pid(getpid());
+        q.set_task_id(1);
+
+        message::task::job *f = q.add_jobs();
+        f->set_job_type(message::task::calculate);
+
+        auto h = new message::tcp_id;
+        h->CopyFrom(q.tcp_id());
+        message::status a;
+        a.set_allocated_tcp_id(h);
+        a.set_task_id(1);
+        a.set_description("test");
+        a.set_percentage(50);
+
+        std::cout << "message::task::descriptor: " << message::task::descriptor()->full_name() << std::endl;
+        std::cout << "message::status::descriptor: " << message::status::descriptor()->full_name() << std::endl;
+
+        ProtobufDispatcher dispatcher(onUnknownMessageType);
+        dispatcher.registerMessageCallback(message::task::descriptor(), onTaskReceive);
+        dispatcher.registerMessageCallback(message::status::descriptor(), onStatusUpdate);
+
+        dispatcher.onMessage(&q);
+        dispatcher.onMessage(&a);
+        dispatcher.onMessage(h);
+
+        q.PrintDebugString();
+        google::protobuf::ShutdownProtobufLibrary();
     }
 
 BOOST_AUTO_TEST_SUITE_END()

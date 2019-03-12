@@ -1,0 +1,39 @@
+syntax = "proto2";
+
+package message;
+
+import "mes.base.proto";
+
+message task
+{
+    required tcp_id tcp_id = 1;
+    required int32 task_id = 2;  // Unique ID number for this task.
+
+    enum type {
+        calculate = 0;
+        file_transfer = 1;
+        terminate = 2;
+    }
+
+    message job {
+        required type job_type = 1;
+        optional string file_path = 2;
+        optional string description = 3;
+    }
+
+    repeated job jobs = 3;
+
+    optional message.timestamp last_updated = 4;
+}
+
+message status
+{
+    required tcp_id tcp_id = 1;
+    required int32 task_id = 2;  // Unique ID number for this task.
+
+    optional string description = 3;
+    optional int32 percentage = 4;
+    optional string buffer = 5;
+
+    required message.timestamp last_updated = 6;
+}

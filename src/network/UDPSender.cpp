@@ -64,7 +64,7 @@ void UDPSender::send() {
         return;
     }
 
-    const int batch_size = 1000;
+    const int batch_size = 3000;
 
     size_t num_points = point_cloud_ptr_->points.size();
     int batch = num_points / batch_size;
@@ -72,13 +72,16 @@ void UDPSender::send() {
         std::unique_ptr<draco::PointCloud> pc = convert2draco(point_cloud_ptr_, i * batch_size, batch_size);
         std::unique_ptr<draco::EncoderBuffer> eb = encode2buffer(*pc);
 
+
+//        std::string buf;
+//        buf.assign(eb->buffer()->begin(), eb->buffer()->end());
         auto len = eb->size();
 //        char buf[len];
 //        memcpy(buf, eb->data(), len);
 
         send(eb->data(), len);
         LOG_INFO << "send point cloud buf with length: " << len;
-        sleep(3);
+        sleep(1);
     }
 }
 

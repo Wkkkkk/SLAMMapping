@@ -16,10 +16,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-#include "EchoServer.h"
-#include "cmd.task.pb.h"
-#include "lm.helloworld.pb.h"
+#include "mes.ud.pb.h"
+
 #include "Singleton.h"
+#include "EchoServer.h"
 
 #include <muduo/base/Logging.h>
 #include <muduo/net/EventLoop.h>
@@ -32,6 +32,34 @@ using namespace muduo;
 using namespace muduo::net;
 
 typedef std::pair<int, int> TaskStatus;
+
+void onTask(const std::weak_ptr<muduo::net::TcpConnection> &conn, const message::task &task) {
+    int id = task.task_id();
+    LOG_INFO << "onTaskReceive: " << task.GetTypeName() << " with id: " << id;
+
+    for (int i = 0; i < 10; ++i) {
+        auto tcp_id = new message::tcp_id;
+        tcp_id->CopyFrom(task.tcp_id());
+
+        message::status status;
+        status.set_task_id(id);
+        status.set_percentage(i * 10);
+        status.set_allocated_tcp_id(tcp_id);
+
+        status.set_allocated_last_updated(new message::timestamp);
+        status.mutable_last_updated()->set_seconds(muduo::Timestamp::now().microSecondsSinceEpoch());
+
+        //some time-cost calculate
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        std::string msg = status.SerializeAsString();
+        auto connection = conn.lock();
+        if (connection) {
+            connection->send(msg);
+            LOG_INFO << "send: " << status.GetTypeName();
+        }
+    }
+}
 
 void print(int id, const std::string &str) {
     for (int i = 0; i < 10; ++i) {
@@ -62,7 +90,7 @@ EchoServer::EchoServer(muduo::net::EventLoop* loop,
     server_.setMessageCallback(
             std::bind(&EchoServer::onMessage, this, _1, _2, _3));
 
-    loop->runEvery(1.0, std::bind(&EchoServer::onTimer, this));
+//    loop->runEvery(1.0, std::bind(&EchoServer::onTimer, this));
 }
 
 void EchoServer::start()
@@ -96,47 +124,20 @@ void EchoServer::onMessage(const muduo::net::TcpConnectionPtr& conn,
                            muduo::net::Buffer* buf,
                            muduo::Timestamp time)
 {
-    muduo::string msg(buf->retrieveAllAsString());
-    cmd::task task;
-    task.ParseFromString(msg);
-    if (!task.IsInitialized()) return;
+    std::string msg(buf->retrieveAllAsString());
 
-    assert(!conn->getContext().empty());
-    auto node = boost::any_cast<Node>(conn->getMutableContext());
-    node->task_id = task.id();
+    message::task task;
+    if (!task.ParseFromString(msg)) {
+        LOG_WARN << "Discarding Unknown Message";
+        return;
+    }
 
-    LOG_INFO << conn->name() << " get task: " << node->task_id << " from: " << task.pid()
-             << " " << task.ip() << ":" << task.port() << " with: " << task.jobs_size()
+    LOG_INFO << conn->name() << " get task: " << task.task_id() << " from: " << task.tcp_id().pid()
+             << " " << task.tcp_id().ip() << ":" << task.tcp_id().port() << " with: " << task.jobs_size()
              << " jobs at " << time.toString();
 
-    for (int i = 0; i < task.jobs_size(); ++i) {
-        cmd::task_job job;
-        job = task.jobs(i);
-
-        LOG_INFO << "job: " << i << " 's type is " << job.type() << " " << job.description();
-        switch (job.type()) {
-            case cmd::task_JobType_CALCULATE : {
-                auto f = std::bind(&calculate, 10, 5);
-                pool_.submit(f);
-
-                break;
-            }
-            case cmd::task_JobType_FILE_TRANSFER : {
-                auto f = std::bind(&print, task.id(), job.file_path());
-                pool_.submit(f);
-
-                break;
-            }
-            case cmd::task_JobType_END : {
-                auto f = std::bind(&do_some_thing);
-                pool_.submit(f);
-
-                break;
-            }
-            default:
-                LOG_WARN << "get unexpected job: " << job.description();
-        }
-    }
+    WeakTcpConnectionPtr weak_conn(conn);
+    pool_.submit(std::bind(onTask, std::move(weak_conn), std::move(task)));
 }
 
 void EchoServer::onTimer() {
@@ -146,20 +147,7 @@ void EchoServer::onTimer() {
         TcpConnectionPtr conn = it->lock();
         if (conn)
         {
-            auto node = boost::any_cast<const Node &>(conn->getContext());
-            if (node.task_id == 0) {
-                ++it;
-                continue;
-            }
-
-            size_t id = node.task_id;
-            TaskStatus task = Singleton<TaskStatus>::getInstance()->findByID(Key<TaskStatus>(id));
-
-            lm::helloworld msg1;
-            msg1.set_id(id);
-            msg1.set_str(std::to_string(task.second));
-
-            std::string msg = msg1.SerializeAsString();
+            std::string msg;
             conn->send(msg);
             ++it;
         }
