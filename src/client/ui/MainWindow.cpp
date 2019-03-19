@@ -23,7 +23,6 @@
 #include <QtGui/QIcon>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QToolBar>
-#include <QtWidgets/QMessageBox>
 #include <QtWidgets/QFileDialog>
 
 #include <muduo/base/Thread.h>
@@ -71,7 +70,6 @@ void MainWindow::open() {
     QFileInfo f(fileName);
     osgwidget_->readDataFromFile(f);
 
-    return;
     uint16_t tcpport = 2000;
     std::string hostIp = "127.0.0.1";
 
