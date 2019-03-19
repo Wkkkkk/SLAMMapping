@@ -61,7 +61,7 @@ namespace osgHelper {
          * @brief helper function
          * @warning the nodemask of the given node must be 1, or else nullptr will be returned
          * */
-        static osg::Node *findNodeWithName(osg::Switch *root_node, const char name[]) {
+        static osg::Node *findNodeWithName(osg::Node *root_node, const char name[]) {
             auto visitor = new NodeTreeSearch(name);
             root_node->accept(*visitor);
             auto node = visitor->getNode();

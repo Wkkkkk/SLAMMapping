@@ -1,6 +1,6 @@
 project(render)
 
-find_package(OpenSceneGraph 3.2 REQUIRED COMPONENTS osgGA osgViewer osgDB osgUtil osgText osg osgQt osgFX)
+find_package(OpenSceneGraph REQUIRED COMPONENTS osgGA osgViewer osgDB osgUtil osgText osg osgFX)
 
 file(GLOB SOURCES_CXX *.cpp *.h)
 include_directories(${OPENSCENEGRAPH_INCLUDE_DIRS})

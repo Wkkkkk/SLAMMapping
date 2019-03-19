@@ -69,7 +69,9 @@ void MainWindow::open() {
     if (fileName.isEmpty()) return;
 
     QFileInfo f(fileName);
+    osgwidget_->readDataFromFile(f);
 
+    return;
     uint16_t tcpport = 2000;
     std::string hostIp = "127.0.0.1";
 
@@ -135,4 +137,9 @@ void MainWindow::createDockWidget() {
     //connect(edit_widget_, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this, SLOT(TreeWidgetClicked(QTreeWidgetItem *, int)));
     //connect(edit_widget_, SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)), this, SLOT(TreeWidgetDoubleClicked(QTreeWidgetItem *, int)));
     //connect(edit_widget_, SIGNAL(itemPressed(QTreeWidgetItem *, int)), this, SLOT(TreeWidgetRightedClicked(QTreeWidgetItem *, int)));
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *event) {
+    osgwidget_->keyPressEvent(event);
+//    QWidget::keyPressEvent(event);
 }

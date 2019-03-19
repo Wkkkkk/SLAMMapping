@@ -7,7 +7,7 @@ set(CXX_FLAGS
         -g
         -Wall
         -Wextra
-        -Werror
+        #        -Werror
 #        -Wconversion
         -Wno-unused-parameter
         #        -Wold-style-cast

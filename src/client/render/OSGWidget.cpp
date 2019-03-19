@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2018 Ally of Intelligence Technology Co., Ltd. All rights reserved.
  *
- * Created by WuKun on 2/15/19.
+ * Created by WuKun on 3/18/19.
  * Contact with:wk707060335@gmail.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,21 +16,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
+#include <QtGui/QKeyEvent>
+#include <QtGui/QPainter>
 
-#include <iostream>
-
+#include <osg/Timer>
 #include <osg/Geometry>
 #include <osg/Material>
 #include <osg/LineWidth>
-#include <osg/ValueObject>
 #include <osg/PolygonMode>
 #include <osg/ShapeDrawable>
 #include <osg/MatrixTransform>
 #include <osg/ComputeBoundsVisitor>
 #include <osg/PositionAttitudeTransform>
-#include <osgDB/ReadFile>
-#include <osgQt/GraphicsWindowQt>
+#include <osgGA/TerrainManipulator>
+#include <osgGA/TrackballManipulator>
+#include <osgGA/StateSetManipulator>
 #include <osgViewer/ViewerEventHandlers>
+#include <osgDB/ReadFile>
+
+#include <muduo/base/Logging.h>
 
 #include "Common.h"
 #include "OSGWidget.h"
@@ -41,12 +45,12 @@
 
 using namespace osgHelper;
 
-OSGWidget::OSGWidget(QWidget *parent)
-        : QWidget(parent),
-          main_view_(nullptr),
+OSGWidget::OSGWidget(QWidget *parent, Qt::WindowFlags f)
+        : QOpenGLWidget(parent, f),
+          _graphicsWindow(new osgViewer::GraphicsWindowEmbedded(this->x(), this->y(), this->width(), this->height())),
+          _viewer(nullptr),
           root_node_(nullptr),
-          text_node_(nullptr),
-          update_timer_(new QTimer) {
+          text_node_(nullptr) {
 }
 
 void OSGWidget::init() {
@@ -54,16 +58,11 @@ void OSGWidget::init() {
     initHelperNode();
     initCamera();
 
-    QObject::connect(update_timer_.data(), SIGNAL(timeout()), this, SLOT(update()));
-    update_timer_->start(10);
-}
-
-void OSGWidget::paintEvent(QPaintEvent *) {
-    frame();
+    startTimer(1000 / 60.f);  // 60hz
 }
 
 void OSGWidget::initSceneGraph() {
-    root_node_ = new osg::Switch;
+    root_node_ = new osg::Group;
     root_node_->setName(root_node_name);
 
     osg::ref_ptr<osg::Switch> point_cloud_node = new osg::Switch;
@@ -99,28 +98,27 @@ void OSGWidget::initSceneGraph() {
 }
 
 void OSGWidget::initCamera() {
-    osgViewer::ViewerBase::ThreadingModel threadingModel = osgViewer::ViewerBase::SingleThreaded;
-    this->setThreadingModel(threadingModel);
-    this->setKeyEventSetsDone(0);
+    _viewer = new osgViewer::Viewer;
 
-    auto graphic_window = createGraphicsWindow(0, 0, 2000, 2000);
-    auto traits = graphic_window->getTraits();
-
-    main_view_ = new osgViewer::View;
-    this->addView(main_view_.get());
-
-    auto camera = main_view_->getCamera();
-    camera->setGraphicsContext(graphic_window);
+    float aspectRatio = static_cast<float>(this->width()) / static_cast<float>(this->height());
+    osg::ref_ptr<osg::Camera> camera = _viewer->getCamera();
+    camera->setViewport(0, 0, this->width(), this->height());
+    //    camera->setClearColor(osg::Vec4(0.2, 0.2, 0.6, 1.0));
+    camera->setProjectionMatrixAsPerspective(30.f, aspectRatio, 1.f, 10000.f);
+    camera->setGraphicsContext(_graphicsWindow);
     camera->getOrCreateStateSet()->setMode(GL_DEPTH_TEST, osg::StateAttribute::OVERRIDE | osg::StateAttribute::ON);
     camera->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
     camera->setClearMask(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-    camera->setViewport(new osg::Viewport(0, 0, traits->width, traits->height));
     camera->setProjectionMatrixAsPerspective(30.f,
-                                             static_cast<double>(traits->width) / static_cast<double>(traits->height),
+                                             static_cast<double>(this->width()) / static_cast<double>(this->height()),
                                              1.0, 1000.0);
     camera->setNearFarRatio(0.0000002);
     camera->setComputeNearFarMode(osg::CullSettings::COMPUTE_NEAR_FAR_USING_BOUNDING_VOLUMES);
 //    camera->setClearColor(osg::Vec4(0.84313, 0.84313, 0.89804, 1.0));
+
+    _viewer->addEventHandler(new osgViewer::StatsHandler);
+    _viewer->addEventHandler(new osgGA::StateSetManipulator(camera->getStateSet()));
+    _viewer->addEventHandler(new NodeTreeHandler(root_node_));
 
     //for outline effects
     {
@@ -130,50 +128,17 @@ void OSGWidget::initCamera() {
         camera->setClearStencil(0);
     }
 
-    main_view_->addEventHandler(new osgViewer::StatsHandler);
-    main_view_->addEventHandler(new NodeTreeHandler(root_node_));
-    main_view_->setSceneData(root_node_.get());
-    main_view_->setCameraManipulator(new osgGA::TrackballManipulator);
+    _terrainMani = new osgGA::TerrainManipulator;
+    _terrainMani->setAllowThrow(false);
+    _terrainMani->setAutoComputeHomePosition(true);
 
-    QWidget *widget = graphic_window->getGLWidget();
-    auto grid = new QGridLayout;
-    grid->addWidget(widget);
-    this->setLayout(grid);
-}
+    _trackballMani = new osgGA::TrackballManipulator;
+    _trackballMani->setAllowThrow(false);
+    _trackballMani->setVerticalAxisFixed(true);
+    _viewer->setCameraManipulator(_trackballMani.get());
 
-osgQt::GraphicsWindowQt *
-OSGWidget::createGraphicsWindow(int x, int y, int w, int h, const std::string &name, bool windowDecoration) const {
-    osg::DisplaySettings *ds = osg::DisplaySettings::instance().get();
-    osg::ref_ptr<osg::GraphicsContext::Traits> traits = new osg::GraphicsContext::Traits;
-    traits->windowName = name;
-    traits->windowDecoration = windowDecoration;
-    traits->x = x;
-    traits->y = y;
-    traits->width = w;
-    traits->height = h;
-    traits->doubleBuffer = true;
-    traits->alpha = ds->getMinimumNumAlphaBits();
-    traits->stencil = ds->getMinimumNumStencilBits();
-    traits->sampleBuffers = ds->getMultiSamples();
-    traits->samples = ds->getNumMultiSamples();
-
-    return new osgQt::GraphicsWindowQt(traits.get());
-}
-
-void OSGWidget::readDataFromFile(const QFileInfo &file_info) {
-    static osg::ref_ptr<osg::Switch> point_cloud_node = dynamic_cast<osg::Switch *>(
-            NodeTreeSearch::findNodeWithName(root_node_, point_cloud_node_name));
-
-    osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(file_info.filePath().toStdString());
-    osg::ref_ptr<osg::Geode> bbox = calculateBBoxForModel(node);
-
-    osg::ref_ptr<osg::MatrixTransform> matrix = new osg::MatrixTransform;
-    matrix->addChild(node);
-    matrix->addChild(bbox);
-    matrix->setUpdateCallback(new NodeCallback());
-
-    point_cloud_node->removeChildren(0, point_cloud_node->getNumChildren());
-    point_cloud_node->addChild(matrix);
+    _viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
+    _viewer->setSceneData(root_node_);
 }
 
 void OSGWidget::initHelperNode() {
@@ -235,6 +200,22 @@ osg::Camera *OSGWidget::createHUD() {
     return camera.release();
 }
 
+void OSGWidget::readDataFromFile(const QFileInfo &file_info) {
+    static osg::ref_ptr<osg::Switch> point_cloud_node = dynamic_cast<osg::Switch *>(
+            NodeTreeSearch::findNodeWithName(root_node_, point_cloud_node_name));
+
+    osg::ref_ptr<osg::Node> node = osgDB::readNodeFile(file_info.filePath().toStdString());
+    osg::ref_ptr<osg::Geode> bbox = calculateBBoxForModel(node);
+
+    osg::ref_ptr<osg::MatrixTransform> matrix = new osg::MatrixTransform;
+    matrix->addChild(node);
+    matrix->addChild(bbox);
+    matrix->setUpdateCallback(new NodeCallback());
+
+    point_cloud_node->removeChildren(0, point_cloud_node->getNumChildren());
+    point_cloud_node->addChild(matrix);
+}
+
 osg::Geode *OSGWidget::calculateBBoxForModel(osg::Node *node) const {
     osg::ref_ptr<osg::Geode> geode = new osg::Geode;
 
@@ -259,4 +240,272 @@ osg::Geode *OSGWidget::calculateBBoxForModel(osg::Node *node) const {
     geode->addDrawable(drawable);
 
     return geode.release();
+}
+
+osgGA::EventQueue *OSGWidget::getEventQueue() const {
+    osgGA::EventQueue *eventQueue = _graphicsWindow->getEventQueue();
+
+    if (eventQueue) {
+        return eventQueue;
+    } else {
+        throw std::runtime_error("Unable to obtain valid event queue");
+    }
+}
+
+void OSGWidget::addEventHandler(osgGA::GUIEventHandler *handler) {
+    _viewer->addEventHandler(handler);
+}
+
+void OSGWidget::removeEventHandler(osgGA::GUIEventHandler *handler) {
+    _viewer->removeEventHandler(handler);
+}
+
+void OSGWidget::paintEvent(QPaintEvent * /* paintEvent */) {
+    this->makeCurrent();
+
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    this->paintGL();
+
+    painter.end();
+
+    this->doneCurrent();
+}
+
+void OSGWidget::paintGL() {
+    _viewer->frame();
+}
+
+void OSGWidget::onResize(int width, int height) {
+    _viewer->getCamera()->setViewport(0, 0, this->width(), this->height());
+}
+
+void OSGWidget::resizeGL(int width, int height) {
+    this->getEventQueue()->windowResize(this->x(), this->y(), width, height);
+    _graphicsWindow->resized(this->x(), this->y(), width, height);
+
+    this->onResize(width, height);
+}
+
+void OSGWidget::keyPressEvent(QKeyEvent *event) {
+    unsigned int key = osgGA::GUIEventAdapter::KEY_Space;
+
+    switch (event->key()) {
+        case Qt::Key_Control:
+            key = osgGA::GUIEventAdapter::KEY_S;
+            break;
+
+        case Qt::Key_Alt:
+            key = osgGA::GUIEventAdapter::KEY_Space;
+            break;
+
+        case Qt::Key_Shift:
+            key = osgGA::GUIEventAdapter::KEY_Shift_L;
+            break;
+
+        default:
+            break;
+    }
+
+    this->getEventQueue()->keyPress(osgGA::GUIEventAdapter::KeySymbol(key));
+}
+
+void OSGWidget::keyReleaseEvent(QKeyEvent *event) {
+    QString keyString = event->text();
+    const char *keyData = keyString.toLocal8Bit().data();
+    Qt::KeyboardModifiers mod = event->modifiers();
+    quint16 modkeyosg = 0;
+    if (mod & Qt::ShiftModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_SHIFT;
+    if (mod & Qt::ControlModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_CTRL;
+    if (mod & Qt::AltModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_ALT;
+    if (mod & Qt::MetaModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_META;
+
+    osgGA::GUIEventAdapter *adapter = this->getEventQueue()->keyRelease(osgGA::GUIEventAdapter::KeySymbol(*keyData));
+    adapter->setModKeyMask(modkeyosg);
+}
+
+void OSGWidget::mouseMoveEvent(QMouseEvent *event) {
+    this->getEventQueue()->mouseMotion(static_cast<float>(event->x()), static_cast<float>(event->y()));
+}
+
+void OSGWidget::mousePressEvent(QMouseEvent *event) {
+    // 1 = left mouse button
+    // 2 = middle mouse button
+    // 3 = right mouse button
+
+    unsigned int button = 0;
+
+    switch (event->button()) {
+        case Qt::LeftButton:
+            button = 1;
+            break;
+
+        case Qt::MiddleButton:
+            button = 2;
+            break;
+
+        case Qt::RightButton:
+            button = 3;
+            break;
+
+        default:
+            break;
+    }
+
+    Qt::KeyboardModifiers mod = event->modifiers();
+    quint16 modkeyosg = 0;
+    if (mod & Qt::ShiftModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_SHIFT;
+    if (mod & Qt::ControlModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_CTRL;
+    if (mod & Qt::AltModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_ALT;
+    if (mod & Qt::MetaModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_META;
+
+    osgGA::GUIEventAdapter *adapter = this->getEventQueue()->mouseButtonPress(static_cast<float>(event->x()),
+                                                                              static_cast<float>(event->y()),
+                                                                              button);
+    adapter->setModKeyMask(modkeyosg);
+}
+
+void OSGWidget::mouseReleaseEvent(QMouseEvent *event) {
+    // 1 = left mouse button
+    // 2 = middle mouse button
+    // 3 = right mouse button
+
+    unsigned int button = 0;
+
+    switch (event->button()) {
+        case Qt::LeftButton:
+            button = 1;
+            break;
+
+        case Qt::MiddleButton:
+            button = 2;
+            break;
+
+        case Qt::RightButton:
+            button = 3;
+            break;
+
+        default:
+            break;
+    }
+    Qt::KeyboardModifiers mod = event->modifiers();
+    quint16 modkeyosg = 0;
+    if (mod & Qt::ShiftModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_SHIFT;
+    if (mod & Qt::ControlModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_CTRL;
+    if (mod & Qt::AltModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_ALT;
+    if (mod & Qt::MetaModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_META;
+
+    osgGA::GUIEventAdapter *adapter = this->getEventQueue()->mouseButtonRelease(static_cast<float>(event->x()),
+                                                                                static_cast<float>(event->y()),
+                                                                                button);
+    adapter->setModKeyMask(modkeyosg);
+}
+
+void OSGWidget::wheelEvent(QWheelEvent *event) {
+    event->accept();
+    int delta = event->delta();
+
+    osgGA::GUIEventAdapter::ScrollingMotion motion = delta > 0 ? osgGA::GUIEventAdapter::SCROLL_UP
+                                                               : osgGA::GUIEventAdapter::SCROLL_DOWN;
+    Qt::KeyboardModifiers mod = event->modifiers();
+    quint16 modkeyosg = 0;
+    if (mod & Qt::ShiftModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_SHIFT;
+    if (mod & Qt::ControlModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_CTRL;
+    if (mod & Qt::AltModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_ALT;
+    if (mod & Qt::MetaModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_META;
+
+    osgGA::GUIEventAdapter *adapter = this->getEventQueue()->mouseScroll(motion);
+    adapter->setModKeyMask(modkeyosg);
+}
+
+void OSGWidget::mouseDoubleClickEvent(QMouseEvent *event) {
+    // 1 = left mouse button
+    // 2 = middle mouse button
+    // 3 = right mouse button
+
+    unsigned int button = 0;
+
+    switch (event->button()) {
+        case Qt::LeftButton:
+            button = 1;
+            break;
+
+        case Qt::MiddleButton:
+            button = 2;
+            break;
+
+        case Qt::RightButton:
+            button = 3;
+            break;
+
+        default:
+            break;
+    }
+    Qt::KeyboardModifiers mod = event->modifiers();
+    quint16 modkeyosg = 0;
+    if (mod & Qt::ShiftModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_SHIFT;
+    if (mod & Qt::ControlModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_CTRL;
+    if (mod & Qt::AltModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_ALT;
+    if (mod & Qt::MetaModifier)
+        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_META;
+
+    osgGA::GUIEventAdapter *adapter = this->getEventQueue()->mouseDoubleButtonPress(static_cast<float>(event->x()),
+                                                                                    static_cast<float>(event->y()),
+                                                                                    button);
+    adapter->setModKeyMask(modkeyosg);
+}
+
+bool OSGWidget::event(QEvent *event) {
+    bool handled = QOpenGLWidget::event(event);
+    // This ensures that the OSG widget is always going to be repainted after the
+    // user performed some interaction. Doing this in the event handler ensures
+    // that we don't forget about some event and prevents duplicate code.
+    switch (event->type()) {
+        case QEvent::KeyPress:
+        case QEvent::KeyRelease:
+        case QEvent::MouseButtonDblClick:
+        case QEvent::MouseButtonPress:
+        case QEvent::MouseButtonRelease:
+        case QEvent::MouseMove:
+        case QEvent::Wheel:
+            //        this->update();
+            break;
+        default:
+            break;
+    }
+
+    return handled;
+}
+
+void OSGWidget::timerEvent(QTimerEvent *) {
+    update();
+}
+
+void OSGWidget::home() {
+    _viewer->home();
+}
+
+void OSGWidget::trackballCenterOn(double x, double y, double z) {
+    _trackballMani->setCenter(osg::Vec3d(x, y, z));
+    _trackballMani->setDistance(700);
 }

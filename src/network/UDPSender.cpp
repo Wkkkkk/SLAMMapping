@@ -39,7 +39,7 @@ UDPSender::UDPSender(const std::string &server_ip, uint16_t port)
     memset(&remote_addr_, 0, sizeof(remote_addr_));
     remote_addr_.sin_family = AF_INET; //设置为IP通信
     remote_addr_.sin_addr.s_addr = ::inet_addr(server_ip.c_str());
-    remote_addr_.sin_port = ::htons(port);
+    remote_addr_.sin_port = htons(port);
 
     /*创建客户端套接字--IPv4协议，面向无连接通信，UDP协议*/
     client_sockfd_ = ::socket(PF_INET, SOCK_DGRAM, 0);

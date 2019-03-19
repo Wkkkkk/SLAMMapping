@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2018 Ally of Intelligence Technology Co., Ltd. All rights reserved.
  *
- * Created by WuKun on 2/15/19.
+ * Created by WuKun on 3/18/19.
  * Contact with:wk707060335@gmail.com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,98 +17,122 @@
  * limitations under the License.
 */
 
-#ifndef SPACECLOUD_OSGWIDGET_H
-#define SPACECLOUD_OSGWIDGET_H
+#ifndef PROTYPE_LDOSGWIDGET_H
+#define PROTYPE_LDOSGWIDGET_H
 
-#include <QtWidgets/QWidget>
-#include <QtWidgets/QGridLayout>
-#include <QtCore/QTimer>
-#include <QtCore/QFileInfo>
-#include <QtGui/QPaintEvent>
-
-#include <osg/ref_ptr>
-#include <osg/Vec3d>
-#include <osg/Camera>
-#include <osg/Switch>
-#include <osg/Geode>
-#include <osgViewer/View>
+//Osg
+#include <osgViewer/GraphicsWindow>
 #include <osgViewer/Viewer>
-#include <osgViewer/CompositeViewer>
-#include <osgGA/TrackballManipulator>
 #include <osgGA/TerrainManipulator>
-
-//forward declaration
-namespace osgQt { class GraphicsWindowQt; };
+#include <osgGA/TrackballManipulator>
+//Qt
+#include <QtCore/QFileInfo>
+#include <QtWidgets/QOpenGLWidget>
 
 /**
- * @brief the renderer
+ * @brief The OSGWidget class is the bridge between OSG and Qt.
  * It renders the whole osg scene
  * and communicate with the main window(user input)
  * through signal&slot
- * */
-class OSGWidget : public QWidget, public osgViewer::CompositeViewer {
+ */
+class OSGWidget : public QOpenGLWidget {
 Q_OBJECT
 public:
-    explicit OSGWidget(QWidget *parent = nullptr);
+    /**
+     * @brief Default constructor
+     * @param parent parent window pointer
+     * @param f windows flags
+     */
+    explicit OSGWidget(QWidget *parent = nullptr, Qt::WindowFlags f = 0);
 
-    ~OSGWidget() final = default;
-
-    Q_DISABLE_COPY(OSGWidget);
-public:
     void init();
 
     void readDataFromFile(const QFileInfo &file_path);
 
-private:
-    /**
-     * @brief update the scene
-     * */
-    void paintEvent(QPaintEvent *event) final;
+    void addEventHandler(osgGA::GUIEventHandler *handler);
 
-    /**
-     * @brief init all node
-     **/
+    void removeEventHandler(osgGA::GUIEventHandler *handler);
+
+    //!inherit from QOpenGLWidget
+    virtual void keyPressEvent(QKeyEvent *event);
+
+    Q_DISABLE_COPY(OSGWidget);
+protected:
+    //!inherit from QOpenGLWidget
+    virtual void paintEvent(QPaintEvent *paintEvent);
+
+    //!inherit from QOpenGLWidget
+    virtual void paintGL();
+
+    //!inherit from QOpenGLWidget
+    virtual void onResize(int width, int height);
+
+    //!inherit from QOpenGLWidget
+    virtual void resizeGL(int width, int height);
+
+    //!inherit from QOpenGLWidget
+    virtual void keyReleaseEvent(QKeyEvent *event);
+
+    //!inherit from QOpenGLWidget
+    virtual void mouseMoveEvent(QMouseEvent *event);
+
+    //!inherit from QOpenGLWidget
+    virtual void mousePressEvent(QMouseEvent *event);
+
+    //!inherit from QOpenGLWidget
+    virtual void mouseReleaseEvent(QMouseEvent *event);
+
+    //!inherit from QOpenGLWidget
+    virtual void wheelEvent(QWheelEvent *event);
+
+    //!inherit from QOpenGLWidget
+    void mouseDoubleClickEvent(QMouseEvent *event);
+
+    //!inherit from QOpenGLWidget
+    virtual bool event(QEvent *event);
+
+    //!inherit from QOpenGLWidget
+    virtual void timerEvent(QTimerEvent *);
+private:
+    //! init all node
     void initSceneGraph();
 
-    /**
-     * @brief init the scene
-     **/
+    //! init the camera
     void initCamera();
 
-    /**
-     * @brief init some help node
-     **/
+    //! init some help node
     void initHelperNode();
 
-    /**
-     * @brief init hud node
-     **/
+    //! create hud node
     osg::Camera *createHUD();
 
     /**
-     * @brief create the graphic context
-     * @param features
-     **/
-    osgQt::GraphicsWindowQt *createGraphicsWindow(int x, int y, int w, int h, const std::string &name = "",
-                                                  bool windowDecoration = false) const;
-
-    /**
      * @brief calculate the bounding box of a node
-     * @param node
-     * @retval bounding box geode
      **/
     osg::Geode *calculateBBoxForModel(osg::Node *node) const;
 
-    //viewer
-    osg::ref_ptr<osgViewer::View> main_view_;
+    //! Getter of osg event queue
+    osgGA::EventQueue *getEventQueue() const;
 
-    //root node of the scene
-    osg::ref_ptr<osg::Switch> root_node_;
+    //! Ref of OSG Graphics Window
+    osg::ref_ptr<osgViewer::GraphicsWindowEmbedded> _graphicsWindow;
+    //! Ref of OSG Viewer
+    osg::ref_ptr<osgViewer::Viewer> _viewer;
+    //! root node of the scene
+    osg::ref_ptr<osg::Group> root_node_;
     osg::ref_ptr<osg::Switch> text_node_;
 
-    //update the scene by call frame()
-    QScopedPointer<QTimer> update_timer_;
+    //! some manipulators
+    osg::ref_ptr<osgGA::TrackballManipulator> _trackballMani;
+    osg::ref_ptr<osgGA::TerrainManipulator> _terrainMani;
 public slots:
+
+    //! Zoom Viewer to whole display
+    void home();
+
+    //! Center On, set to terrianManipulator if 0,0,0 input
+    void trackballCenterOn(double x, double y, double z);
 };
 
-#endif //SPACECLOUD_OSGWIDGET_H
+
+#endif //PROTYPE_LDOSGWIDGET_H

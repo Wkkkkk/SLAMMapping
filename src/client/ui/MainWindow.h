@@ -48,6 +48,8 @@ public:
     ~MainWindow() final = default;
 
     Q_DISABLE_COPY(MainWindow);
+protected:
+    virtual void keyPressEvent(QKeyEvent *event);
 private:
     /**
      * @brief It inits all members

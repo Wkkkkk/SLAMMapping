@@ -51,7 +51,7 @@ void EchoClient::onConnection(const TcpConnectionPtr &conn) {
     else
     {
         conn_.reset();
-        loop_->quit();
+//        loop_->quit();
     }
 }
 

@@ -103,7 +103,7 @@ namespace osgHelper {
     class NodeTreeHandler : public osgGA::GUIEventHandler {
         using osgGA::GUIEventHandler::handle;
     public:
-        explicit NodeTreeHandler(osg::Switch *node) : root_node_(node) {}
+        explicit NodeTreeHandler(osg::Node *node) : root_node_(node) {}
 
         /**
          * @brief override the handle() to define action
@@ -129,7 +129,7 @@ namespace osgHelper {
         }
 
     protected:
-        osg::ref_ptr<osg::Switch> root_node_;
+        osg::ref_ptr<osg::Node> root_node_;
     };
 }
 

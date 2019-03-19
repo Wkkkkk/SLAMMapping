@@ -26,6 +26,7 @@
 #include <memory>
 #include <thread>
 #include <algorithm>
+#include <functional>
 #include <iostream>
 
 template<class T>
