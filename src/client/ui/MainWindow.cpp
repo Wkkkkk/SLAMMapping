@@ -71,7 +71,7 @@ void MainWindow::open() {
     osgwidget_->readDataFromFile(f);
 
     uint16_t tcpport = 2000;
-    std::string hostIp = "127.0.0.1";
+    std::string hostIp = "192.168.0.146";
 
     InetAddress serverAddr(hostIp, tcpport);
     LOG_WARN << "Connecting " << serverAddr.toIpPort();
@@ -81,7 +81,7 @@ void MainWindow::open() {
 
     message::task task;
     task.set_allocated_tcp_id(new message::tcp_id);
-    task.mutable_tcp_id()->set_ip("127.0.0.1");
+    task.mutable_tcp_id()->set_ip("192.168.0.146");
     task.mutable_tcp_id()->set_port(1234);
     task.mutable_tcp_id()->set_pid(getpid());
     task.mutable_tcp_id()->set_allocated_connect_time(new message::timestamp);

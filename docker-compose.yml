@@ -1,0 +1,23 @@
+version: '2.3'
+
+services:
+  server:
+    image: protype
+    ports:
+      - "2000:2000"
+    command: bash -c "/home/zhihui/workspace/SLAMMapping/bin/server"
+  client:
+    image: protype
+    runtime: nvidia
+    environment:
+      - DISPLAY=unix$DISPLAY
+    volumes:
+      - /home/zhihui/SoftWares/OpenSceneGraph-OpenSceneGraph-3.2/data:/home/zhihui/workspace/data
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /etc/machine-id:/etc/machine-id
+    networks:
+      - default
+    command:  bash -c "/home/zhihui/workspace/SLAMMapping/bin/client"
+networks:
+  default:
+    driver: bridge
