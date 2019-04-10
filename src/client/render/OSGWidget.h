@@ -71,9 +71,6 @@ protected:
     virtual void resizeGL(int width, int height);
 
     //!inherit from QOpenGLWidget
-    virtual void keyReleaseEvent(QKeyEvent *event);
-
-    //!inherit from QOpenGLWidget
     virtual void mouseMoveEvent(QMouseEvent *event);
 
     //!inherit from QOpenGLWidget

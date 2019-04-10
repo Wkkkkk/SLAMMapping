@@ -25,6 +25,7 @@
 #include <mutex>
 #include <memory>
 #include <thread>
+#include <vector>
 #include <algorithm>
 #include <functional>
 #include <iostream>

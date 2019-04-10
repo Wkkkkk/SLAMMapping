@@ -66,6 +66,6 @@ void EchoClient::onMessage(const TcpConnectionPtr &conn, Buffer *buf, Timestamp 
 }
 
 void EchoClient::send(const std::string &str) {
-    conn_->send(str);
+    if (conn_) conn_->send(str);
 }
 

@@ -1,18 +1,8 @@
-#nvidia drivier support
-FROM nvidia/opengl:1.0-glvnd-runtime-ubuntu16.04 as nvidia
-LABEL description="nvidia driver for OpenGL"
-##################################################
 FROM ubuntu:16.04 as builder
 LABEL description="ubuntu"
 
-#essential gl dynamic libraries
-COPY --from=nvidia /usr/local /usr/local
-COPY --from=nvidia /etc/ld.so.conf.d/glvnd.conf /etc/ld.so.conf.d/glvnd.conf
-
 #some fixed environment variables
-ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
 ENV CMAKE_PREFIX_PATH=/usr/local/lib64
-ENV LD_LIBRARY_PATH=/usr/local/lib64
 
 #basic dependencies.
 #compile dependencies
@@ -116,7 +106,6 @@ RUN tar -xzvf /home/zhihui/workspace/osgPlugins.tar.gz -C $bin_path
 
 #COPY --from=builder /usr/lib/x86_64-linux-gnu/libQt5DBus.so* /home/Demo/bin/
 #some fixed environment variables
-ENV CMAKE_PREFIX_PATH=/usr/local/lib64
 ENV LD_LIBRARY_PATH=/usr/local/lib64:$bin_path
 
 CMD $bin_path/client

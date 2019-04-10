@@ -16,6 +16,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
+#include <stdio.h>
+
 #include <QtGui/QKeyEvent>
 #include <QtGui/QPainter>
 
@@ -263,12 +265,12 @@ void OSGWidget::removeEventHandler(osgGA::GUIEventHandler *handler) {
 void OSGWidget::paintEvent(QPaintEvent * /* paintEvent */) {
     this->makeCurrent();
 
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
+//    QPainter painter(this);
+//    painter.setRenderHint(QPainter::Antialiasing);
 
     this->paintGL();
 
-    painter.end();
+//    painter.end();
 
     this->doneCurrent();
 }
@@ -289,44 +291,10 @@ void OSGWidget::resizeGL(int width, int height) {
 }
 
 void OSGWidget::keyPressEvent(QKeyEvent *event) {
-    unsigned int key = osgGA::GUIEventAdapter::KEY_Space;
+    char key_c = event->text().toStdString()[0];
+    LOG_INFO << "OSGWidget get key: " << key_c;
 
-    switch (event->key()) {
-        case Qt::Key_Control:
-            key = osgGA::GUIEventAdapter::KEY_S;
-            break;
-
-        case Qt::Key_Alt:
-            key = osgGA::GUIEventAdapter::KEY_Space;
-            break;
-
-        case Qt::Key_Shift:
-            key = osgGA::GUIEventAdapter::KEY_Shift_L;
-            break;
-
-        default:
-            break;
-    }
-
-    this->getEventQueue()->keyPress(osgGA::GUIEventAdapter::KeySymbol(key));
-}
-
-void OSGWidget::keyReleaseEvent(QKeyEvent *event) {
-    QString keyString = event->text();
-    const char *keyData = keyString.toLocal8Bit().data();
-    Qt::KeyboardModifiers mod = event->modifiers();
-    quint16 modkeyosg = 0;
-    if (mod & Qt::ShiftModifier)
-        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_SHIFT;
-    if (mod & Qt::ControlModifier)
-        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_CTRL;
-    if (mod & Qt::AltModifier)
-        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_ALT;
-    if (mod & Qt::MetaModifier)
-        modkeyosg |= osgGA::GUIEventAdapter::MODKEY_META;
-
-    osgGA::GUIEventAdapter *adapter = this->getEventQueue()->keyRelease(osgGA::GUIEventAdapter::KeySymbol(*keyData));
-    adapter->setModKeyMask(modkeyosg);
+    this->getEventQueue()->keyPress(osgGA::GUIEventAdapter::KeySymbol(key_c));
 }
 
 void OSGWidget::mouseMoveEvent(QMouseEvent *event) {

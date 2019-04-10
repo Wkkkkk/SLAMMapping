@@ -21,6 +21,7 @@
 #include <unistd.h>
 
 #include <QtGui/QIcon>
+#include <QtGui/QKeyEvent>
 #include <QtWidgets/QMenu>
 #include <QtWidgets/QToolBar>
 #include <QtWidgets/QFileDialog>
@@ -45,6 +46,7 @@ MainWindow::MainWindow(QWidget *parent)
           pool(&loop, "tcp-client") {
 
     this->setWindowTitle("SpaceCloud");
+    this->grabKeyboard();
 
     osgwidget_ = new OSGWidget(this);
     this->setCentralWidget(osgwidget_);
@@ -70,6 +72,7 @@ void MainWindow::open() {
     QFileInfo f(fileName);
     osgwidget_->readDataFromFile(f);
 
+    //!connect test
     uint16_t tcpport = 2000;
     std::string hostIp = "192.168.0.146";
 
