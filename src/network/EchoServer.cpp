@@ -24,10 +24,6 @@
 #include <muduo/base/Logging.h>
 #include <muduo/net/EventLoop.h>
 
-using std::placeholders::_1;
-using std::placeholders::_2;
-using std::placeholders::_3;
-
 using namespace muduo;
 using namespace muduo::net;
 
@@ -85,6 +81,10 @@ EchoServer::EchoServer(muduo::net::EventLoop* loop,
                        const muduo::net::InetAddress& listenAddr)
         : server_(loop, listenAddr, "EchoServer")
 {
+    using std::placeholders::_1;
+    using std::placeholders::_2;
+    using std::placeholders::_3;
+
     server_.setConnectionCallback(
             std::bind(&EchoServer::onConnection, this, _1));
     server_.setMessageCallback(
@@ -138,6 +138,11 @@ void EchoServer::onMessage(const muduo::net::TcpConnectionPtr& conn,
 
     WeakTcpConnectionPtr weak_conn(conn);
     pool_.submit(std::bind(onTask, std::move(weak_conn), std::move(task)));
+
+    auto f = pool_.submit(std::bind(calculate, 10, 25));
+    f.then([conn](boost::future<int> future) {
+        LOG_INFO << "calculate result: " << future.get();
+    });
 }
 
 void EchoServer::onTimer() {
